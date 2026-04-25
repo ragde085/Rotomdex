@@ -1,7 +1,8 @@
 /* ============================================================
-   CRIATURAS — Catálogo y Equipo
-   Estética: cartoon original, líneas gruesas, colores saturados,
-   tipografía con carácter. NO oficial.
+   ROTOMDEX — Pokédex con la onda eléctrica de Rotom
+   Estética: cian Rotom + amarillo eléctrico + tinta navy de
+   pantalla de Pokédex, líneas gruesas y bordes nítidos.
+   No oficial.
    ============================================================ */
 
 :root {
@@ -25,20 +26,27 @@
   --t-steel:     #a8b1c0;
   --t-fairy:     #ec9bc8;
 
-  /* Accent (overridable via tweaks) */
-  --accent: #f25b3a;
-  --accent-ink: #2a1410;
+  /* Rotom signature — used by the brand mark and accents that should not
+     change with the user's tweak (tweak controls --accent only). */
+  --rotom-cyan:   #7fcfe0;
+  --rotom-cyan-2: #a8e2ee;
+  --rotom-bolt:   #ffd23f;
+  --rotom-spark:  #ff6f8c;
 
-  /* Light theme */
-  --bg: #fff8e7;
-  --bg-2: #ffeec4;
+  /* Accent (overridable via tweaks) — defaults to Rotom's lightning yellow */
+  --accent: #ffd23f;
+  --accent-ink: #0c2438;
+
+  /* Light theme — Rotom-Dex face: cyan body + Pokédex-screen navy ink */
+  --bg: #dff5fc;
+  --bg-2: #b8e3f0;
   --surface: #ffffff;
-  --surface-2: #fff4d6;
-  --ink: #1a1410;
-  --ink-2: #4a3f33;
-  --ink-3: #8a7a64;
-  --line: #1a1410;
-  --line-soft: #d8c8a8;
+  --surface-2: #ecf7fc;
+  --ink: #0c2438;
+  --ink-2: #335c80;
+  --ink-3: #7aa3bf;
+  --line: #0c2438;
+  --line-soft: #a4d3e3;
   --shadow-card: 4px 4px 0 0 var(--line);
   --shadow-card-lg: 6px 6px 0 0 var(--line);
   --radius: 18px;
@@ -49,15 +57,16 @@
 }
 
 [data-theme="dark"] {
-  --bg: #1a1614;
-  --bg-2: #241e1a;
-  --surface: #2a221d;
-  --surface-2: #322822;
-  --ink: #fff4d6;
-  --ink-2: #d8c8a8;
-  --ink-3: #8a7a64;
-  --line: #fff4d6;
-  --line-soft: #4a3f33;
+  /* Dark theme — Rotom in plasma form: deep electric navy + cyan glow */
+  --bg: #06121f;
+  --bg-2: #0e2138;
+  --surface: #14304d;
+  --surface-2: #1d3f66;
+  --ink: #aae5ff;
+  --ink-2: #7bc3d8;
+  --ink-3: #5a8fa8;
+  --line: #aae5ff;
+  --line-soft: #2a4870;
   --shadow-card: 4px 4px 0 0 #000;
   --shadow-card-lg: 6px 6px 0 0 #000;
 }
@@ -156,25 +165,38 @@ input:focus, select:focus {
   letter-spacing: -0.02em;
   color: var(--ink);
 }
+/* Rotom-shaped brand mark: cyan body with a yellow lightning bolt centered.
+   The bolt is drawn with a clip-path so it stays crisp at any zoom. */
 .brand-mark {
   width: 36px;
   height: 36px;
   border-radius: 50%;
   border: 3px solid var(--line);
   background:
-    linear-gradient(180deg, var(--accent) 0% 50%, var(--surface) 50% 100%);
+    radial-gradient(circle at 30% 30%, var(--rotom-cyan-2) 0%, var(--rotom-cyan) 70%);
   position: relative;
   box-shadow: 2px 2px 0 0 var(--line);
+  overflow: hidden;
 }
-.brand-mark::after {
+.brand-mark::before {
+  /* outer bolt outline (acts as a "stroke") */
   content: '';
   position: absolute;
   left: 50%; top: 50%;
-  width: 10px; height: 10px;
-  background: var(--surface);
-  border: 3px solid var(--line);
-  border-radius: 50%;
+  width: 18px; height: 22px;
+  background: var(--line);
   transform: translate(-50%, -50%);
+  clip-path: polygon(55% 0%, 0% 55%, 38% 55%, 22% 100%, 100% 38%, 55% 38%);
+}
+.brand-mark::after {
+  /* inner bolt fill */
+  content: '';
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 14px; height: 18px;
+  background: var(--rotom-bolt);
+  transform: translate(-50%, -50%);
+  clip-path: polygon(55% 0%, 0% 55%, 38% 55%, 22% 100%, 100% 38%, 55% 38%);
 }
 
 .search-wrap {
@@ -858,7 +880,8 @@ input:focus, select:focus {
   }
   .brand { font-size: 18px; gap: 8px; }
   .brand-mark { width: 30px; height: 30px; }
-  .brand-mark::after { width: 8px; height: 8px; border-width: 2px; }
+  .brand-mark::before { width: 14px; height: 18px; }
+  .brand-mark::after { width: 11px; height: 14px; }
   .search-wrap {
     order: 3;
     flex-basis: 100%;
@@ -1011,12 +1034,13 @@ input:focus, select:focus {
   line-height: 1.45;
 }
 .welcome-list li::before {
-  content: '◆';
+  content: '⚡';
   position: absolute;
   left: 0;
-  color: var(--accent);
-  font-size: 12px;
-  top: 3px;
+  color: var(--rotom-bolt);
+  filter: drop-shadow(1px 1px 0 var(--line));
+  font-size: 13px;
+  top: 1px;
 }
 .welcome-list b { color: var(--ink); }
 .welcome-list code {

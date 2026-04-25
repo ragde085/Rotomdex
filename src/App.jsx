@@ -30,9 +30,9 @@ function WelcomeBanner() {
   return (
     <div className="welcome">
       <button className="welcome-close" onClick={dismiss} aria-label="Cerrar bienvenida">×</button>
-      <h2>¡Bienvenido a Criaturas!</h2>
+      <h2>⚡ ¡Bzzt! Bienvenido a Rotomdex</h2>
       <p className="welcome-sub">
-        Catálogo y gestor de equipos con datos de PokéAPI, en español.
+        Pokédex con la onda eléctrica de Rotom: catálogo y gestor de equipos en español, con datos de PokéAPI.
       </p>
       <ul className="welcome-list">
         <li><b>Buscar</b> por nombre (ES o EN) o número en la barra superior.</li>
@@ -50,7 +50,7 @@ export default function App() {
   const [tweaks, setTweak] = useTweaks(/*EDITMODE-BEGIN*/{
     "theme": "light",
     "density": "comfortable",
-    "accent": "#f25b3a"
+    "accent": "#ffd23f"
   }/*EDITMODE-END*/);
 
   useEffect(() => {
@@ -241,7 +241,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark" />
-          <span>Criaturas</span>
+          <span>Rotomdex</span>
         </div>
         <div className="search-wrap">
           <input
