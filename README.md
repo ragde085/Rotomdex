@@ -1,6 +1,6 @@
 # Rotomdex
 
-Catálogo de criaturas y gestor de equipos en español, construido con **Vite + React 18** y datos de [PokéAPI](https://pokeapi.co/).
+Pokédex con la estética eléctrica de **Rotom**: catálogo y gestor de equipos en español, construido con **Vite + React 18** y datos de [PokéAPI](https://pokeapi.co/).
 
 ## Características
 
