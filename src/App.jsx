@@ -16,6 +16,36 @@ import {
 
 const PAGE_SIZE = 36;
 
+const WELCOME_KEY = 'criaturas:welcome-dismissed:v1';
+
+function WelcomeBanner() {
+  const [open, setOpen] = useState(() => {
+    try { return localStorage.getItem(WELCOME_KEY) !== '1'; } catch { return true; }
+  });
+  if (!open) return null;
+  const dismiss = () => {
+    try { localStorage.setItem(WELCOME_KEY, '1'); } catch {}
+    setOpen(false);
+  };
+  return (
+    <div className="welcome">
+      <button className="welcome-close" onClick={dismiss} aria-label="Cerrar bienvenida">×</button>
+      <h2>¡Bienvenido a Criaturas!</h2>
+      <p className="welcome-sub">
+        Catálogo y gestor de equipos con datos de PokéAPI, en español.
+      </p>
+      <ul className="welcome-list">
+        <li><b>Buscar</b> por nombre (ES o EN) o número en la barra superior.</li>
+        <li><b>Filtrar</b> por tipo y generación bajo la barra de búsqueda.</li>
+        <li><b>Detalle</b>: pulsa cualquier carta para ver stats, habilidades, debilidades y evolución.</li>
+        <li><b>Equipo</b>: pulsa <code>+</code> en una carta para añadirla (máx. 6). Cambia a <i>Mi Equipo</i> para reordenar y ver cobertura.</li>
+        <li><b>Compartir</b>: en <i>Mi Equipo</i>, el botón 🔗 copia un enlace con tu equipo.</li>
+      </ul>
+      <button className="welcome-cta" onClick={dismiss}>Entendido</button>
+    </div>
+  );
+}
+
 export default function App() {
   const [tweaks, setTweak] = useTweaks(/*EDITMODE-BEGIN*/{
     "theme": "light",
@@ -238,6 +268,7 @@ export default function App() {
 
       {view === 'catalog' && (
         <>
+          <WelcomeBanner />
           <FilterBar filters={filters} setFilters={setFilters} />
           <div className="grid">
             {items.map(it => (
