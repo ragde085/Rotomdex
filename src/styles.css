@@ -1,7 +1,8 @@
 /* ============================================================
-   ROTOMDEX — Pokédex con la onda eléctrica de Rotom
-   Estética: cian Rotom + amarillo eléctrico + tinta navy de
-   pantalla de Pokédex, líneas gruesas y bordes nítidos.
+   ROTOMDEX — Pokédex con la estética del Rotom-Dex (anime)
+   Cuerpo rojo Rotom + visera negra + pantalla cian + acento
+   amarillo eléctrico, sobre un canvas tipo "pantalla de Pokédex".
+   Responsive: móvil < 700px, tablet 701–1024px, desktop > 1024px.
    No oficial.
    ============================================================ */
 
@@ -26,22 +27,28 @@
   --t-steel:     #a8b1c0;
   --t-fairy:     #ec9bc8;
 
-  /* Rotom signature — used by the brand mark and accents that should not
-     change with the user's tweak (tweak controls --accent only). */
-  --rotom-cyan:   #7fcfe0;
+  /* Rotom signature — fixed brand colors taken from the Rotom-Dex anime
+     design: red body, cyan screen, yellow electric, black visor.
+     User tweak controls --accent only; these stay put. */
+  --rotom-red:    #e63333;
+  --rotom-red-2:  #b21f1f;
+  --rotom-cyan:   #6fc6e0;
   --rotom-cyan-2: #a8e2ee;
+  --rotom-screen: #c8eaf5;
   --rotom-bolt:   #ffd23f;
   --rotom-spark:  #ff6f8c;
+  --rotom-visor:  #0c1a2a;
 
-  /* Accent (overridable via tweaks) — defaults to Rotom's lightning yellow */
-  --accent: #ffd23f;
-  --accent-ink: #0c2438;
+  /* Accent (overridable via tweaks) — defaults to Rotom's body red */
+  --accent: #e63333;
+  --accent-ink: #ffffff;
 
-  /* Light theme — Rotom-Dex face: cyan body + Pokédex-screen navy ink */
-  --bg: #dff5fc;
-  --bg-2: #b8e3f0;
+  /* Light theme — the Pokédex screen viewport: cool cyan canvas with
+     deep navy ink (CRT-display feel). */
+  --bg: #e6f4fa;
+  --bg-2: #c4e4ef;
   --surface: #ffffff;
-  --surface-2: #ecf7fc;
+  --surface-2: #edf6fa;
   --ink: #0c2438;
   --ink-2: #335c80;
   --ink-3: #7aa3bf;
@@ -142,18 +149,23 @@ input:focus, select:focus {
   grid-template-rows: auto 1fr;
 }
 
+/* Topbar = the red Rotom-Dex case top + the device's screen ridge below.
+   Sticky so it stays visible while scrolling the catalog. */
 .topbar {
   position: sticky;
   top: 0;
   z-index: 50;
-  background: var(--bg);
-  border-bottom: 3px solid var(--line);
-  padding: 14px 24px;
+  background: var(--rotom-red);
+  color: #fff;
+  border-bottom: 4px solid var(--line);
+  box-shadow: 0 6px 0 0 var(--rotom-red-2);
+  padding: 12px 24px;
   display: flex;
-  gap: 16px;
+  gap: 14px;
   align-items: center;
   flex-wrap: wrap;
 }
+.topbar .brand { color: #fff; }
 
 .brand {
   display: flex;
@@ -165,38 +177,41 @@ input:focus, select:focus {
   letter-spacing: -0.02em;
   color: var(--ink);
 }
-/* Rotom-shaped brand mark: cyan body with a yellow lightning bolt centered.
-   The bolt is drawn with a clip-path so it stays crisp at any zoom. */
+/* Rotom-Dex face brand mark: rounded square with a black eye visor band on
+   top and a cyan "screen" below, evoking the anime device. Built from the
+   element + two pseudos, no SVG. */
 .brand-mark {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 3px solid var(--line);
-  background:
-    radial-gradient(circle at 30% 30%, var(--rotom-cyan-2) 0%, var(--rotom-cyan) 70%);
+  width: 38px;
+  height: 38px;
+  border-radius: 9px 9px 11px 11px;
+  border: 2.5px solid var(--line);
+  background: var(--rotom-red);
   position: relative;
   box-shadow: 2px 2px 0 0 var(--line);
   overflow: hidden;
+  flex-shrink: 0;
 }
 .brand-mark::before {
-  /* outer bolt outline (acts as a "stroke") */
+  /* black visor band with two white eyes */
   content: '';
   position: absolute;
-  left: 50%; top: 50%;
-  width: 18px; height: 22px;
-  background: var(--line);
-  transform: translate(-50%, -50%);
-  clip-path: polygon(55% 0%, 0% 55%, 38% 55%, 22% 100%, 100% 38%, 55% 38%);
+  left: 0; right: 0; top: 22%;
+  height: 28%;
+  background:
+    radial-gradient(circle at 28% 50%, #fff 0 18%, transparent 19%),
+    radial-gradient(circle at 72% 50%, #fff 0 18%, transparent 19%),
+    var(--rotom-visor);
 }
 .brand-mark::after {
-  /* inner bolt fill */
+  /* cyan screen with a tiny smile cutout */
   content: '';
   position: absolute;
-  left: 50%; top: 50%;
-  width: 14px; height: 18px;
-  background: var(--rotom-bolt);
-  transform: translate(-50%, -50%);
-  clip-path: polygon(55% 0%, 0% 55%, 38% 55%, 22% 100%, 100% 38%, 55% 38%);
+  left: 16%; right: 16%; bottom: 12%;
+  height: 38%;
+  border-radius: 4px;
+  background:
+    radial-gradient(ellipse at 50% 25%, transparent 0 12%, var(--rotom-cyan) 13%);
+  border: 1.5px solid var(--line);
 }
 
 .search-wrap {
@@ -209,11 +224,8 @@ input:focus, select:focus {
 
 .tab-btn {
   background: var(--surface);
+  color: var(--ink);
   position: relative;
-}
-.tab-btn[aria-current="true"] {
-  background: var(--accent);
-  color: var(--accent-ink);
 }
 .tab-btn .badge {
   display: inline-block;
@@ -224,9 +236,15 @@ input:focus, select:focus {
   font-size: 12px;
   margin-left: 6px;
 }
-.tab-btn[aria-current="true"] .badge {
-  background: var(--accent-ink);
-  color: var(--accent);
+/* Active tab on the red topbar uses Rotom's electric yellow so it pops
+   like a Pokédex LED button instead of disappearing into the body. */
+.topbar .tab-btn[aria-current="true"] {
+  background: var(--rotom-bolt);
+  color: var(--line);
+}
+.topbar .tab-btn[aria-current="true"] .badge {
+  background: var(--line);
+  color: var(--rotom-bolt);
 }
 
 /* ===== Filters bar ===== */
@@ -879,9 +897,7 @@ input:focus, select:focus {
     gap: 8px;
   }
   .brand { font-size: 18px; gap: 8px; }
-  .brand-mark { width: 30px; height: 30px; }
-  .brand-mark::before { width: 14px; height: 18px; }
-  .brand-mark::after { width: 11px; height: 14px; }
+  .brand-mark { width: 32px; height: 32px; }
   .search-wrap {
     order: 3;
     flex-basis: 100%;
@@ -1069,4 +1085,89 @@ input:focus, select:focus {
   border-radius: 50%;
   background: var(--surface-2);
   box-shadow: 2px 2px 0 0 var(--line);
+}
+
+/* ============================================================
+   RESPONSIVE: tablet + tightened mobile + small-mobile fallbacks
+   ============================================================ */
+
+/* ----- Tablet: 701px – 1024px ----- */
+@media (min-width: 701px) and (max-width: 1024px) {
+  .topbar {
+    padding: 12px 18px;
+    gap: 12px;
+  }
+  .filters { padding: 14px 18px; }
+  .grid {
+    padding: 18px 18px 60px;
+    grid-template-columns: repeat(auto-fill, minmax(calc(180px * var(--density)), 1fr));
+    gap: 14px;
+  }
+  .card .art-wrap { height: 140px; }
+
+  .team-view { padding: 18px 18px; }
+  .team-slots { grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .team-stats-grid { grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  .modal-body { padding: 22px 22px 26px; gap: 22px; }
+
+  .welcome {
+    margin: 14px 18px 0;
+    padding: 18px 22px 16px;
+  }
+  .welcome h2 { font-size: calc(22px * var(--density)); }
+  .welcome-list { grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+}
+
+/* ----- Mobile additions: welcome banner + touch targets ----- */
+@media (max-width: 700px) {
+  .welcome {
+    margin: 12px 12px 0;
+    padding: 16px 18px 14px;
+    border-width: 2px;
+    border-radius: 14px;
+  }
+  .welcome h2 { font-size: 20px; line-height: 1.2; }
+  .welcome-sub { font-size: 13px; margin-bottom: 10px; }
+  .welcome-list {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+  .welcome-list li { font-size: 13px; padding-left: 20px; }
+  .welcome-cta { width: 100%; padding: 10px 14px; font-size: 14px; }
+  .welcome-close { top: 8px; right: 8px; }
+
+  /* Larger tap targets on inputs and primary buttons */
+  input, select, button { min-height: 40px; }
+
+  /* Tab badge a touch smaller so tabs don't wrap awkwardly */
+  .topbar { padding-bottom: 8px; }
+  .topbar .brand { flex-shrink: 0; }
+}
+
+/* ----- Small mobile: <420px (tight phones) ----- */
+@media (max-width: 420px) {
+  .grid {
+    padding: 12px 10px 60px;
+    gap: 10px;
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .card .art-wrap { height: 96px; }
+  .card .name { font-size: 13px; }
+
+  .team-slots { gap: 8px; }
+  .slot.filled { padding: 8px 6px 6px; }
+
+  .topbar { padding: 8px 10px; gap: 6px; }
+  .brand { font-size: 16px; }
+  .brand-mark { width: 28px; height: 28px; }
+  .tab-btn { padding: 6px 8px; font-size: 12px; }
+  .tab-btn .badge { padding: 1px 5px; font-size: 10px; }
+
+  .welcome { padding: 14px 14px 12px; }
+  .welcome h2 { font-size: 18px; }
+  .modal-hero { padding: 14px 14px 12px; }
+  .modal-hero .name-big { font-size: 24px; }
+  .modal-hero .art-big { width: 130px; height: 130px; }
 }

@@ -50,7 +50,7 @@ export default function App() {
   const [tweaks, setTweak] = useTweaks(/*EDITMODE-BEGIN*/{
     "theme": "light",
     "density": "comfortable",
-    "accent": "#ffd23f"
+    "accent": "#e63333"
   }/*EDITMODE-END*/);
 
   useEffect(() => {
