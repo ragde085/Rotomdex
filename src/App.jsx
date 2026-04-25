@@ -143,7 +143,7 @@ export default function App() {
       setItems([]); setPage(0); setDone(false);
     })();
     return () => { cancel = true; };
-  }, [filters.q, filters.gen, index]);
+  }, [filters.q, filters.gen, filters.types, index]);
 
   async function hydrateBasic(id) {
     try {
