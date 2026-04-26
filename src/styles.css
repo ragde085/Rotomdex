@@ -1171,3 +1171,55 @@ input:focus, select:focus {
   .modal-hero .name-big { font-size: 24px; }
   .modal-hero .art-big { width: 130px; height: 130px; }
 }
+
+/* ===== Sprite picker (DetailModal) ===== */
+.sprite-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 22px 0;
+  border-top: 2px dashed var(--line-soft);
+}
+.sprite-picker-label {
+  font-family: 'Fredoka', sans-serif;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-3);
+}
+.sprite-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.sprite-chip {
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 2px 2px 0 0 var(--line);
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.sprite-chip.on {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* Pixel sprite needs nearest-neighbor scaling; artwork stays smooth. */
+.modal-hero .art-big img.pixel {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: var(--rotom-screen);
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 700px) {
+  .sprite-picker { padding: 10px 16px 0; gap: 8px; }
+  .sprite-chip { padding: 4px 8px; font-size: 10px; }
+}
