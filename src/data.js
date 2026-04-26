@@ -1,5 +1,5 @@
 /* ============================================================
-   Data layer — PokéAPI helpers + Spanish translations + cache
+   Data layer — PokéAPI helpers + multi-language helpers + cache
    ============================================================ */
 
 const API = 'https://pokeapi.co/api/v2';
@@ -54,10 +54,6 @@ export async function getSpecies(idOrName) {
   return fetchJson(`${API}/pokemon-species/${idOrName}`);
 }
 
-export async function getTypeData(typeName) {
-  return fetchJson(`${API}/type/${typeName}`);
-}
-
 export async function getEvolutionChain(url) {
   return fetchJson(url);
 }
@@ -70,13 +66,20 @@ export async function getMove(name) {
   return fetchJson(`${API}/move/${name}`);
 }
 
-export function getSpanishName(species) {
-  const entry = species.names.find(n => n.language.name === 'es');
-  return entry ? entry.name : species.name;
+// ===== Localized helpers =====
+function pickByLang(arr, lang, getLang, getValue, fallbackLang = 'en') {
+  const found = arr.find(x => getLang(x) === lang);
+  if (found) return getValue(found);
+  const fb = arr.find(x => getLang(x) === fallbackLang);
+  return fb ? getValue(fb) : null;
 }
 
-export function getSpanishFlavor(species) {
-  const entries = species.flavor_text_entries.filter(e => e.language.name === 'es');
+export function getName(species, lang = 'es') {
+  return pickByLang(species.names, lang, n => n.language.name, n => n.name) ?? species.name;
+}
+
+export function getFlavor(species, lang = 'es') {
+  const entries = species.flavor_text_entries.filter(e => e.language.name === lang);
   if (entries.length === 0) {
     const en = species.flavor_text_entries.find(e => e.language.name === 'en');
     return en ? cleanFlavor(en.flavor_text) : '';
@@ -85,46 +88,29 @@ export function getSpanishFlavor(species) {
 }
 
 function cleanFlavor(s) {
-  return s.replace(/[\f\n\r]/g, ' ').replace(/\s+/g, ' ').trim();
+  return s.replace(/[\f\n\r]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-export function getSpanishCategory(species) {
-  const e = species.genera.find(g => g.language.name === 'es');
-  return e ? e.genus : '';
+export function getCategory(species, lang = 'es') {
+  return pickByLang(species.genera, lang, g => g.language.name, g => g.genus) ?? '';
 }
 
-export function getSpanishAbilityName(ability) {
-  const e = ability.names.find(n => n.language.name === 'es');
-  return e ? e.name : ability.name;
+export function getAbilityName(ability, lang = 'es') {
+  return pickByLang(ability.names, lang, n => n.language.name, n => n.name) ?? ability.name;
 }
-export function getSpanishAbilityDesc(ability) {
-  const e = ability.flavor_text_entries.find(x => x.language.name === 'es');
+
+export function getAbilityDesc(ability, lang = 'es') {
+  const e = ability.flavor_text_entries.find(x => x.language.name === lang);
   if (e) return cleanFlavor(e.flavor_text);
   const en = ability.flavor_text_entries.find(x => x.language.name === 'en');
   return en ? cleanFlavor(en.flavor_text) : '';
 }
-export function getSpanishMoveName(move) {
-  const e = move.names.find(n => n.language.name === 'es');
-  return e ? e.name : move.name;
+
+export function getMoveName(move, lang = 'es') {
+  return pickByLang(move.names, lang, n => n.language.name, n => n.name) ?? move.name;
 }
 
-export const TYPE_ES = {
-  normal: 'Normal', fire: 'Fuego', water: 'Agua', electric: 'Eléctrico',
-  grass: 'Planta', ice: 'Hielo', fighting: 'Lucha', poison: 'Veneno',
-  ground: 'Tierra', flying: 'Volador', psychic: 'Psíquico', bug: 'Bicho',
-  rock: 'Roca', ghost: 'Fantasma', dragon: 'Dragón', dark: 'Siniestro',
-  steel: 'Acero', fairy: 'Hada',
-};
-
-export const STAT_ES = {
-  hp: 'PS',
-  attack: 'Ataque',
-  defense: 'Defensa',
-  'special-attack': 'At. Esp.',
-  'special-defense': 'Def. Esp.',
-  speed: 'Velocidad',
-};
-
+// Generation ranges (national dex id ranges)
 export const GENERATIONS = [
   { id: 1, name: 'Gen I',   range: [1, 151],    region: 'Kanto' },
   { id: 2, name: 'Gen II',  range: [152, 251],  region: 'Johto' },
@@ -141,6 +127,7 @@ export function genFromId(id) {
   return GENERATIONS.find(g => id >= g.range[0] && id <= g.range[1]);
 }
 
+// ===== Sprites =====
 export function spriteUrl(id) {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
 }
@@ -148,19 +135,59 @@ export function spriteUrlSmall(id) {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 }
 
-export const spanishNameIndex = new Map();
-export async function ensureSpanishName(id) {
-  if (spanishNameIndex.has(id)) return spanishNameIndex.get(id);
+/** From a /pokemon endpoint sprites object, return the variants that exist
+ *  along with a friendly translation key. The caller maps the key to a
+ *  localized label via i18n. */
+export function spriteVariants(sprites) {
+  if (!sprites) return [];
+  const variants = [
+    { key: 'front_default',       url: sprites.front_default,       parts: ['front'] },
+    { key: 'back_default',        url: sprites.back_default,        parts: ['back'] },
+    { key: 'front_shiny',         url: sprites.front_shiny,         parts: ['front', 'shiny'] },
+    { key: 'back_shiny',          url: sprites.back_shiny,          parts: ['back',  'shiny'] },
+    { key: 'front_female',        url: sprites.front_female,        parts: ['front', 'female'] },
+    { key: 'back_female',         url: sprites.back_female,         parts: ['back',  'female'] },
+    { key: 'front_shiny_female',  url: sprites.front_shiny_female,  parts: ['front', 'shiny', 'female'] },
+    { key: 'back_shiny_female',   url: sprites.back_shiny_female,   parts: ['back',  'shiny', 'female'] },
+  ];
+  return variants.filter(v => v.url);
+}
+
+// ===== Search index — per-language, lazy =====
+const nameIndices = new Map(); // Map<lang, Map<id, lowercase name>>
+
+function getIdx(lang) {
+  let m = nameIndices.get(lang);
+  if (!m) { m = new Map(); nameIndices.set(lang, m); }
+  return m;
+}
+
+export function getCachedName(id, lang) {
+  return getIdx(lang).get(id);
+}
+
+export function hasCachedName(id, lang) {
+  return getIdx(lang).has(id);
+}
+
+export function setCachedName(id, lang, lowerName) {
+  getIdx(lang).set(id, lowerName);
+}
+
+export async function ensureName(id, lang = 'es') {
+  const idx = getIdx(lang);
+  if (idx.has(id)) return idx.get(id);
   try {
     const sp = await getSpecies(id);
-    const nm = getSpanishName(sp).toLowerCase();
-    spanishNameIndex.set(id, nm);
+    const nm = getName(sp, lang).toLowerCase();
+    idx.set(id, nm);
     return nm;
   } catch (e) {
     return null;
   }
 }
 
+// ===== Type effectiveness =====
 const TYPE_CHART = {
   normal:   { fighting: 2, ghost: 0 },
   fire:     { water: 2, ground: 2, rock: 2, fire: 0.5, grass: 0.5, ice: 0.5, bug: 0.5, steel: 0.5, fairy: 0.5 },
@@ -228,17 +255,16 @@ export const PokeData = {
   getEvolutionChain,
   getAbility,
   getMove,
-  getSpanishName,
-  getSpanishFlavor,
-  getSpanishCategory,
-  getSpanishAbilityName,
-  getSpanishAbilityDesc,
-  getSpanishMoveName,
-  TYPE_ES, STAT_ES, ALL_TYPES, GENERATIONS,
+  getName,
+  getFlavor,
+  getCategory,
+  getAbilityName,
+  getAbilityDesc,
+  getMoveName,
+  ALL_TYPES, GENERATIONS,
   genFromId,
-  spriteUrl, spriteUrlSmall,
-  ensureSpanishName,
-  spanishNameIndex,
+  spriteUrl, spriteUrlSmall, spriteVariants,
+  ensureName, getCachedName, hasCachedName, setCachedName,
   calculateWeaknesses,
   analyzeTeamCoverage,
   teamTotalStats,

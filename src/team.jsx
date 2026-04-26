@@ -4,6 +4,7 @@
 
 import { useState, useMemo } from 'react';
 import { PokeData } from './data.js';
+import { t, typeName, statName } from './i18n.js';
 
 const TEAMS_STORAGE_KEY = 'criaturas:teams:v1';
 
@@ -32,7 +33,8 @@ export function decodeTeamFromUrl() {
   return { name, ids };
 }
 
-export function TeamView({ teamsState, setTeamsState, onOpenDetail, onToast }) {
+export function TeamView({ teamsState, setTeamsState, onOpenDetail, onToast, lang = 'es' }) {
+  const i18n = t(lang);
   const active = teamsState.list.find(t => t.id === teamsState.active) || teamsState.list[0];
 
   const updateActive = (mut) => {
@@ -63,7 +65,7 @@ export function TeamView({ teamsState, setTeamsState, onOpenDetail, onToast }) {
 
   const newTeam = () => {
     const id = 'team-' + Date.now();
-    const next = { active: id, list: [...teamsState.list, { id, name: 'Equipo nuevo', members: [] }] };
+    const next = { active: id, list: [...teamsState.list, { id, name: i18n.teamNew, members: [] }] };
     setTeamsState(next);
     saveTeams(next);
   };
@@ -81,9 +83,9 @@ export function TeamView({ teamsState, setTeamsState, onOpenDetail, onToast }) {
     const url = window.location.origin + window.location.pathname + encodeTeamToUrl(active);
     try {
       await navigator.clipboard.writeText(url);
-      onToast('🔗 Enlace copiado');
+      onToast(i18n.linkCopied);
     } catch {
-      window.prompt('Copia este enlace:', url);
+      window.prompt(i18n.copyLink, url);
     }
   };
 
@@ -94,8 +96,8 @@ export function TeamView({ teamsState, setTeamsState, onOpenDetail, onToast }) {
     <div className="team-view">
       <div className="team-header">
         <input className="team-title-input" value={active.name} onChange={(e) => setName(e.target.value)} />
-        <button onClick={shareTeam} disabled={active.members.length === 0}>🔗 Compartir</button>
-        <button onClick={newTeam}>＋ Nuevo equipo</button>
+        <button onClick={shareTeam} disabled={active.members.length === 0}>{i18n.share}</button>
+        <button onClick={newTeam}>{i18n.newTeam}</button>
       </div>
 
       <div className="team-list-mgr" style={{ marginTop: 0, marginBottom: 16 }}>
@@ -117,7 +119,7 @@ export function TeamView({ teamsState, setTeamsState, onOpenDetail, onToast }) {
           if (!m) return (
             <div key={i} className="slot empty">
               <span className="plus">＋</span>
-              <span className="lbl">Vacío</span>
+              <span className="lbl">{i18n.empty}</span>
             </div>
           );
           const slotBg = `color-mix(in oklab, var(--t-${m.types[0]}) 18%, var(--surface))`;
@@ -140,9 +142,9 @@ export function TeamView({ teamsState, setTeamsState, onOpenDetail, onToast }) {
                    onError={(e) => { e.target.src = PokeData.spriteUrlSmall(m.id); }} />
               <div className="slot-name">{m.name}</div>
               <div className="slot-types">
-                {m.types.map(t => (
-                  <span key={t} className="type-badge" style={{ '--type-color': `var(--t-${t})` }}>
-                    {PokeData.TYPE_ES[t]}
+                {m.types.map(ty => (
+                  <span key={ty} className="type-badge" style={{ '--type-color': `var(--t-${ty})` }}>
+                    {typeName(ty, lang)}
                   </span>
                 ))}
               </div>
@@ -153,17 +155,17 @@ export function TeamView({ teamsState, setTeamsState, onOpenDetail, onToast }) {
 
       {active.members.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--ink-3)' }}>
-          <h3 style={{ fontSize: 24, marginBottom: 8, color: 'var(--ink)' }}>Tu equipo está vacío</h3>
-          <p>Ve al catálogo y pulsa el ＋ en cualquier criatura.</p>
+          <h3 style={{ fontSize: 24, marginBottom: 8, color: 'var(--ink)' }}>{i18n.teamEmpty}</h3>
+          <p>{i18n.teamEmptyHint}</p>
         </div>
       ) : (
         <div className="team-stats-grid">
           <div className="team-card">
-            <h3>Estadísticas totales</h3>
+            <h3>{i18n.totalStats}</h3>
             <div className="stats">
               {['hp','attack','defense','special-attack','special-defense','speed'].map(k => (
                 <div key={k} className="stat-row">
-                  <span className="lbl">{PokeData.STAT_ES[k]}</span>
+                  <span className="lbl">{statName(k, lang)}</span>
                   <span className="val">{totals[k]}</span>
                   <div className="stat-bar">
                     <span style={{ width: `${Math.min(100, (totals[k] / 1200) * 100)}%` }} />
@@ -171,7 +173,7 @@ export function TeamView({ teamsState, setTeamsState, onOpenDetail, onToast }) {
                 </div>
               ))}
               <div className="stat-row total">
-                <span className="lbl">Total</span>
+                <span className="lbl">{i18n.total}</span>
                 <span className="val">{Object.values(totals).reduce((a,b)=>a+b,0)}</span>
                 <div className="stat-bar">
                   <span style={{ width: `${Math.min(100, (Object.values(totals).reduce((a,b)=>a+b,0) / 4320) * 100)}%` }} />
@@ -181,20 +183,20 @@ export function TeamView({ teamsState, setTeamsState, onOpenDetail, onToast }) {
           </div>
 
           <div className="team-card">
-            <h3>Cobertura defensiva</h3>
+            <h3>{i18n.coverage}</h3>
             <p style={{ fontSize: 12, color: 'var(--ink-3)', marginBottom: 12, marginTop: -6 }}>
-              Cuántos miembros son débiles, resistentes o inmunes a cada tipo.
+              {i18n.coverageHint}
             </p>
-            {PokeData.ALL_TYPES.map(t => {
-              const c = coverage[t];
+            {PokeData.ALL_TYPES.map(ty => {
+              const c = coverage[ty];
               const balance = c.resistCount + c.immuneCount - c.weakCount;
               const isWeak = c.weakCount > c.resistCount + c.immuneCount;
               const isGood = c.resistCount + c.immuneCount > c.weakCount;
               const total = c.weakCount + c.resistCount + c.immuneCount;
               return (
-                <div key={t} className="coverage-row">
-                  <span className="type-badge" style={{ '--type-color': `var(--t-${t})`, fontSize: 10 }}>
-                    {PokeData.TYPE_ES[t]}
+                <div key={ty} className="coverage-row">
+                  <span className="type-badge" style={{ '--type-color': `var(--t-${ty})`, fontSize: 10 }}>
+                    {typeName(ty, lang)}
                   </span>
                   <div className={'coverage-bar ' + (isWeak ? 'bad' : isGood ? 'good' : '')}>
                     <span style={{ width: `${total === 0 ? 0 : Math.abs(balance) / 6 * 100}%`, background: isWeak ? 'var(--t-fire)' : isGood ? 'var(--t-grass)' : 'var(--ink-3)' }} />
@@ -208,8 +210,8 @@ export function TeamView({ teamsState, setTeamsState, onOpenDetail, onToast }) {
           </div>
 
           <div className="team-card" style={{ gridColumn: '1 / -1' }}>
-            <h3>Debilidades compartidas (×2 o más)</h3>
-            <SharedWeaknesses members={active.members} />
+            <h3>{i18n.sharedWeaknesses}</h3>
+            <SharedWeaknesses members={active.members} lang={lang} i18n={i18n} />
           </div>
         </div>
       )}
@@ -217,17 +219,17 @@ export function TeamView({ teamsState, setTeamsState, onOpenDetail, onToast }) {
   );
 }
 
-function SharedWeaknesses({ members }) {
-  const items = PokeData.ALL_TYPES.map(t => {
+function SharedWeaknesses({ members, lang, i18n }) {
+  const items = PokeData.ALL_TYPES.map(ty => {
     const weakMembers = members.filter(m => {
       const w = PokeData.calculateWeaknesses(m.types);
-      return w[t] > 1;
+      return w[ty] > 1;
     });
-    return { type: t, count: weakMembers.length, members: weakMembers };
+    return { type: ty, count: weakMembers.length, members: weakMembers };
   }).filter(x => x.count >= 2).sort((a,b) => b.count - a.count);
 
   if (items.length === 0) {
-    return <p style={{ color: 'var(--ink-3)' }}>✓ No hay debilidades compartidas notables. ¡Buen balance!</p>;
+    return <p style={{ color: 'var(--ink-3)' }}>{i18n.noSharedWeaknesses}</p>;
   }
 
   return (
@@ -236,9 +238,9 @@ function SharedWeaknesses({ members }) {
         <div key={type} style={{ padding: 10, background: 'var(--surface-2)', border: '2px solid var(--line)', borderRadius: 'var(--radius-sm)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <span className="type-badge" style={{ '--type-color': `var(--t-${type})` }}>
-              {PokeData.TYPE_ES[type]}
+              {typeName(type, lang)}
             </span>
-            <span style={{ fontWeight: 700, color: 'var(--t-fire)' }}>×{count} débiles</span>
+            <span style={{ fontWeight: 700, color: 'var(--t-fire)' }}>{i18n.weakCount(count)}</span>
           </div>
           <div style={{ fontSize: 12, color: 'var(--ink-2)', textTransform: 'capitalize' }}>
             {members.map(m => m.name).join(', ')}

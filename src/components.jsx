@@ -2,10 +2,11 @@
    Components — Card, Filters, Modal, etc.
    ============================================================ */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { PokeData } from './data.js';
+import { t, typeName, statName } from './i18n.js';
 
-export function CritterCard({ basic, inTeam, onOpen, onToggleTeam }) {
+export function CritterCard({ basic, inTeam, onOpen, onToggleTeam, lang = 'es' }) {
   const primaryType = basic.types?.[0];
   const cardBg = primaryType ? `color-mix(in oklab, var(--t-${primaryType}) 18%, var(--surface-2))` : 'var(--surface-2)';
   return (
@@ -14,7 +15,7 @@ export function CritterCard({ basic, inTeam, onOpen, onToggleTeam }) {
       <button
         className={'add-btn' + (inTeam ? ' in-team' : '')}
         onClick={(e) => { e.stopPropagation(); onToggleTeam(basic); }}
-        title={inTeam ? 'Quitar del equipo' : 'Añadir al equipo'}
+        title={inTeam ? 'Quitar' : '＋'}
       >
         {inTeam ? '✓' : '+'}
       </button>
@@ -24,9 +25,9 @@ export function CritterCard({ basic, inTeam, onOpen, onToggleTeam }) {
       </div>
       <div className="name">{basic.name}</div>
       <div className="types">
-        {basic.types.map(t => (
-          <span key={t} className="type-badge" style={{ '--type-color': `var(--t-${t})` }}>
-            {PokeData.TYPE_ES[t] || t}
+        {basic.types.map(ty => (
+          <span key={ty} className="type-badge" style={{ '--type-color': `var(--t-${ty})` }}>
+            {typeName(ty, lang)}
           </span>
         ))}
       </div>
@@ -34,54 +35,62 @@ export function CritterCard({ basic, inTeam, onOpen, onToggleTeam }) {
   );
 }
 
-export function FilterBar({ filters, setFilters }) {
-  const toggleType = (t) => {
+export function FilterBar({ filters, setFilters, lang = 'es' }) {
+  const i18n = t(lang);
+  const toggleType = (ty) => {
     const cur = new Set(filters.types);
-    if (cur.has(t)) cur.delete(t); else cur.add(t);
+    if (cur.has(ty)) cur.delete(ty); else cur.add(ty);
     setFilters({ ...filters, types: [...cur] });
   };
   const setGen = (g) => setFilters({ ...filters, gen: g });
 
   return (
     <div className="filters">
-      <span className="filter-label">Tipo</span>
-      {PokeData.ALL_TYPES.map(t => {
-        const on = filters.types.includes(t);
+      <span className="filter-label">{i18n.filterType}</span>
+      {PokeData.ALL_TYPES.map(ty => {
+        const on = filters.types.includes(ty);
         return (
           <button
-            key={t}
+            key={ty}
             className={'type-chip' + (on ? ' on' : '')}
-            style={{ '--type-color': `var(--t-${t})` }}
-            onClick={() => toggleType(t)}
+            style={{ '--type-color': `var(--t-${ty})` }}
+            onClick={() => toggleType(ty)}
           >
             <span className="dot" />
-            {PokeData.TYPE_ES[t]}
+            {typeName(ty, lang)}
           </button>
         );
       })}
       <span style={{ width: 12 }} />
-      <span className="filter-label">Gen</span>
+      <span className="filter-label">{i18n.filterGen}</span>
       <select value={filters.gen} onChange={(e) => setGen(e.target.value)} style={{ padding: '6px 10px', fontSize: 13 }}>
-        <option value="">Todas</option>
+        <option value="">{i18n.filterAll}</option>
         {PokeData.GENERATIONS.map(g => (
           <option key={g.id} value={g.id}>{g.name} · {g.region}</option>
         ))}
       </select>
       {(filters.types.length > 0 || filters.gen || filters.q) && (
         <button onClick={() => setFilters({ q: '', types: [], gen: '' })} style={{ marginLeft: 'auto' }}>
-          Limpiar filtros
+          {i18n.clearFilters}
         </button>
       )}
     </div>
   );
 }
 
-export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId }) {
+function spriteVariantLabel(parts, i18n) {
+  const map = { front: i18n.sprite.front, back: i18n.sprite.back, shiny: i18n.sprite.shiny, female: i18n.sprite.female };
+  return parts.map(p => map[p]).join(' · ');
+}
+
+export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId, lang = 'es' }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
+  const [spriteKey, setSpriteKey] = useState('artwork');
+  const i18n = t(lang);
 
   useEffect(() => {
-    setData(null); setError(null);
+    setData(null); setError(null); setSpriteKey('artwork');
     let cancel = false;
     (async () => {
       try {
@@ -89,7 +98,7 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId }) {
           PokeData.getPokemon(id),
           PokeData.getSpecies(id),
         ]);
-        const types = poke.types.map(t => t.type.name);
+        const types = poke.types.map(ty => ty.type.name);
         const stats = {};
         for (const s of poke.stats) stats[s.stat.name] = s.base_stat;
         const total = Object.values(stats).reduce((a, b) => a + b, 0);
@@ -97,8 +106,8 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId }) {
         const abilities = await Promise.all(poke.abilities.map(async a => {
           const ab = await PokeData.getAbility(a.ability.name);
           return {
-            name: PokeData.getSpanishAbilityName(ab),
-            desc: PokeData.getSpanishAbilityDesc(ab),
+            name: PokeData.getAbilityName(ab, lang),
+            desc: PokeData.getAbilityDesc(ab, lang),
             hidden: a.is_hidden,
           };
         }));
@@ -108,7 +117,7 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId }) {
           try {
             const mv = await PokeData.getMove(ref.name);
             return {
-              name: PokeData.getSpanishMoveName(mv),
+              name: PokeData.getMoveName(mv, lang),
               type: mv.type.name,
               power: mv.power,
               accuracy: mv.accuracy,
@@ -120,16 +129,16 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId }) {
         if (species.evolution_chain?.url) {
           try {
             const evo = await PokeData.getEvolutionChain(species.evolution_chain.url);
-            evoChain = await flattenEvoChain(evo.chain);
+            evoChain = await flattenEvoChain(evo.chain, lang);
           } catch (e) {}
         }
 
         if (cancel) return;
         setData({
           id,
-          name: PokeData.getSpanishName(species),
-          category: PokeData.getSpanishCategory(species),
-          flavor: PokeData.getSpanishFlavor(species),
+          name: PokeData.getName(species, lang),
+          category: PokeData.getCategory(species, lang),
+          flavor: PokeData.getFlavor(species, lang),
           types,
           stats,
           total,
@@ -140,13 +149,14 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId }) {
           evoChain,
           weaknesses: PokeData.calculateWeaknesses(types),
           art: PokeData.spriteUrl(id),
+          sprites: poke.sprites,
         });
       } catch (e) {
         if (!cancel) setError(e.message);
       }
     })();
     return () => { cancel = true; };
-  }, [id]);
+  }, [id, lang]);
 
   useEffect(() => {
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
@@ -156,12 +166,20 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId }) {
 
   const heroBg = data?.types?.[0] ? `color-mix(in oklab, var(--t-${data.types[0]}) 80%, var(--ink))` : 'var(--bg-2)';
 
+  const variants = useMemo(() => {
+    if (!data) return [];
+    const list = [{ key: 'artwork', url: data.art, parts: ['artwork'] }];
+    return list.concat(PokeData.spriteVariants(data.sprites));
+  }, [data]);
+
+  const currentVariant = variants.find(v => v.key === spriteKey) || variants[0];
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Detalle">
-        <button className="modal-close" onClick={onClose} aria-label="Cerrar">×</button>
-        {!data && !error && <div style={{ padding: 60, textAlign: 'center' }}><div className="spinner" style={{ margin: '0 auto' }} /><p>Cargando…</p></div>}
-        {error && <div style={{ padding: 60, textAlign: 'center' }}><h3>Ups</h3><p>No se pudo cargar.</p></div>}
+      <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={i18n.detail}>
+        <button className="modal-close" onClick={onClose} aria-label={i18n.close}>×</button>
+        {!data && !error && <div style={{ padding: 60, textAlign: 'center' }}><div className="spinner" style={{ margin: '0 auto' }} /><p>{i18n.loading}</p></div>}
+        {error && <div style={{ padding: 60, textAlign: 'center' }}><h3>{i18n.oops}</h3><p>{i18n.loadFailed}</p></div>}
         {data && (
           <>
             <div className="modal-hero" style={{ '--hero-bg': heroBg }}>
@@ -170,51 +188,80 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId }) {
                 <h2 className="name-big">{data.name}</h2>
                 {data.category && <div className="category">{data.category}</div>}
                 <div className="types">
-                  {data.types.map(t => (
-                    <span key={t} className="type-badge" style={{ '--type-color': `var(--t-${t})` }}>
-                      {PokeData.TYPE_ES[t]}
+                  {data.types.map(ty => (
+                    <span key={ty} className="type-badge" style={{ '--type-color': `var(--t-${ty})` }}>
+                      {typeName(ty, lang)}
                     </span>
                   ))}
                 </div>
                 <div style={{ marginTop: 14 }}>
                   <button onClick={() => onToggleTeam(data)} style={{ background: inTeam ? 'var(--ink)' : 'var(--accent)', color: inTeam ? 'var(--bg)' : 'var(--accent-ink)' }}>
-                    {inTeam ? '✓ En el equipo' : '＋ Añadir al equipo'}
+                    {inTeam ? i18n.inTeam : i18n.addToTeam}
                   </button>
                 </div>
               </div>
               <div className="art-big">
-                <img src={data.art} alt={data.name} onError={(e) => { e.target.src = PokeData.spriteUrlSmall(data.id); }} />
+                <img
+                  src={currentVariant?.url}
+                  alt={data.name}
+                  className={spriteKey === 'artwork' ? '' : 'pixel'}
+                  onError={(e) => { e.target.src = PokeData.spriteUrlSmall(data.id); }}
+                />
               </div>
             </div>
+
+            {variants.length > 1 && (
+              <div className="sprite-picker">
+                <span className="sprite-picker-label">{i18n.section.sprites}</span>
+                <div className="sprite-chips">
+                  {variants.map(v => {
+                    const label = v.key === 'artwork'
+                      ? i18n.sprite.artwork
+                      : spriteVariantLabel(v.parts, i18n);
+                    return (
+                      <button
+                        key={v.key}
+                        type="button"
+                        className={'sprite-chip' + (v.key === spriteKey ? ' on' : '')}
+                        onClick={() => setSpriteKey(v.key)}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="modal-body">
               <section style={{ gridColumn: '1 / -1' }}>
-                <p className="flavor-text">{data.flavor || 'Sin descripción disponible.'}</p>
+                <p className="flavor-text">{data.flavor || i18n.noFlavor}</p>
               </section>
 
               <section>
-                <h3>Datos</h3>
+                <h3>{i18n.section.data}</h3>
                 <div className="facts">
                   <div className="fact">
-                    <div className="lbl">Altura</div>
+                    <div className="lbl">{i18n.height}</div>
                     <div className="val">{data.height} m</div>
                   </div>
                   <div className="fact">
-                    <div className="lbl">Peso</div>
+                    <div className="lbl">{i18n.weight}</div>
                     <div className="val">{data.weight} kg</div>
                   </div>
                   <div className="fact">
-                    <div className="lbl">Gen</div>
+                    <div className="lbl">{i18n.gen}</div>
                     <div className="val">{PokeData.genFromId(data.id)?.name?.replace('Gen ','') || '—'}</div>
                   </div>
                 </div>
               </section>
 
               <section>
-                <h3>Estadísticas base</h3>
+                <h3>{i18n.section.stats}</h3>
                 <div className="stats">
                   {['hp','attack','defense','special-attack','special-defense','speed'].map(k => (
                     <div key={k} className="stat-row">
-                      <span className="lbl">{PokeData.STAT_ES[k]}</span>
+                      <span className="lbl">{statName(k, lang)}</span>
                       <span className="val">{data.stats[k]}</span>
                       <div className="stat-bar">
                         <span style={{ width: `${Math.min(100, (data.stats[k] / 200) * 100)}%`, background: `var(--t-${data.types[0]})` }} />
@@ -222,7 +269,7 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId }) {
                     </div>
                   ))}
                   <div className="stat-row total">
-                    <span className="lbl">Total</span>
+                    <span className="lbl">{i18n.total}</span>
                     <span className="val">{data.total}</span>
                     <div className="stat-bar">
                       <span style={{ width: `${Math.min(100, (data.total / 720) * 100)}%` }} />
@@ -232,12 +279,12 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId }) {
               </section>
 
               <section>
-                <h3>Habilidades</h3>
+                <h3>{i18n.section.abilities}</h3>
                 {data.abilities.map((a, i) => (
                   <div key={i} className="ability">
                     <div className="nm">
                       {a.name}
-                      {a.hidden && <span className="hidden-tag">Oculta</span>}
+                      {a.hidden && <span className="hidden-tag">{i18n.hidden}</span>}
                     </div>
                     {a.desc && <div className="desc">{a.desc}</div>}
                   </div>
@@ -245,10 +292,10 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId }) {
               </section>
 
               <section>
-                <h3>Debilidades y resistencias</h3>
+                <h3>{i18n.section.weaknesses}</h3>
                 <div className="weakness-grid">
-                  {PokeData.ALL_TYPES.map(t => {
-                    const m = data.weaknesses[t];
+                  {PokeData.ALL_TYPES.map(ty => {
+                    const m = data.weaknesses[ty];
                     let cls = '';
                     if (m === 0) cls = 'immune';
                     else if (m === 4) cls = 'veryweak';
@@ -257,32 +304,32 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId }) {
                     else if (m === 0.25) cls = 'veryresist';
                     if (m === 1) return null;
                     return (
-                      <div key={t} className={'weak-cell ' + cls}>
-                        <span className="type-badge" style={{ '--type-color': `var(--t-${t})`, fontSize: 9, padding: '2px 6px' }}>
-                          {PokeData.TYPE_ES[t]}
+                      <div key={ty} className={'weak-cell ' + cls}>
+                        <span className="type-badge" style={{ '--type-color': `var(--t-${ty})`, fontSize: 9, padding: '2px 6px' }}>
+                          {typeName(ty, lang)}
                         </span>
                         <span className="mult">×{m}</span>
                       </div>
                     );
                   })}
-                  {Object.values(data.weaknesses).every(m => m === 1) && <p style={{ color: 'var(--ink-3)', fontSize: 13 }}>Sin debilidades ni resistencias notables.</p>}
+                  {Object.values(data.weaknesses).every(m => m === 1) && <p style={{ color: 'var(--ink-3)', fontSize: 13 }}>{i18n.noWeaknesses}</p>}
                 </div>
               </section>
 
               <section>
-                <h3>Movimientos destacados</h3>
+                <h3>{i18n.section.moves}</h3>
                 <div className="move-list">
                   {data.moves.map((m, i) => (
                     <div key={i} className="move-item">
                       <div>
                         <div className="nm">{m.name}</div>
                         <span className="type-badge" style={{ '--type-color': `var(--t-${m.type})`, fontSize: 9, padding: '1px 6px', marginTop: 2 }}>
-                          {PokeData.TYPE_ES[m.type]}
+                          {typeName(m.type, lang)}
                         </span>
                       </div>
                       <div className="meta">
-                        {m.power ? `Pot ${m.power}` : '—'}<br/>
-                        {m.accuracy ? `Pre ${m.accuracy}` : '—'}
+                        {m.power ? `${i18n.pwr} ${m.power}` : '—'}<br/>
+                        {m.accuracy ? `${i18n.acc} ${m.accuracy}` : '—'}
                       </div>
                     </div>
                   ))}
@@ -291,7 +338,7 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId }) {
 
               {data.evoChain.length > 1 && (
                 <section style={{ gridColumn: '1 / -1' }}>
-                  <h3>Cadena de evolución</h3>
+                  <h3>{i18n.section.evo}</h3>
                   <div className="evo-chain">
                     {data.evoChain.map((node, i) => (
                       <React.Fragment key={node.id + '-' + i}>
@@ -318,7 +365,7 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId }) {
   );
 }
 
-async function flattenEvoChain(node, condition = null) {
+async function flattenEvoChain(node, lang, condition = null) {
   const out = [];
   const speciesName = node.species.name;
   const m = node.species.url.match(/\/pokemon-species\/(\d+)\//);
@@ -326,7 +373,7 @@ async function flattenEvoChain(node, condition = null) {
   let name = speciesName;
   try {
     const sp = await PokeData.getSpecies(speciesName);
-    name = PokeData.getSpanishName(sp);
+    name = PokeData.getName(sp, lang);
   } catch {}
   out.push({ id, name, condition });
   for (const child of (node.evolves_to || [])) {
@@ -334,9 +381,9 @@ async function flattenEvoChain(node, condition = null) {
     let cond = '';
     if (det.min_level) cond = `Nv. ${det.min_level}`;
     else if (det.item) cond = `${det.item.name.replace(/-/g,' ')}`;
-    else if (det.trigger?.name === 'trade') cond = 'Intercambio';
-    else if (det.min_happiness) cond = 'Felicidad';
-    const childOut = await flattenEvoChain(child, cond);
+    else if (det.trigger?.name === 'trade') cond = '⇄';
+    else if (det.min_happiness) cond = '♥';
+    const childOut = await flattenEvoChain(child, lang, cond);
     out.push(...childOut);
   }
   return out;

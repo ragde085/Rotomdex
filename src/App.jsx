@@ -11,8 +11,10 @@ import {
   TweaksPanel,
   TweakSection,
   TweakRadio,
+  TweakSelect,
   TweakColor,
 } from './tweaks-panel.jsx';
+import { LANG_OPTIONS, t } from './i18n.js';
 
 const PAGE_SIZE = 36;
 
@@ -40,6 +42,7 @@ function WelcomeBanner() {
         <li><b>Detalle</b>: pulsa cualquier carta para ver stats, habilidades, debilidades y evolución.</li>
         <li><b>Equipo</b>: pulsa <code>+</code> en una carta para añadirla (máx. 6). Cambia a <i>Mi Equipo</i> para reordenar y ver cobertura.</li>
         <li><b>Compartir</b>: en <i>Mi Equipo</i>, el botón 🔗 copia un enlace con tu equipo.</li>
+        <li><b>Idioma</b> y <b>tema</b>: abre los Tweaks (esquina inferior derecha) para cambiar idioma de los datos, tema y acento.</li>
       </ul>
       <button className="welcome-cta" onClick={dismiss}>Entendido</button>
     </div>
@@ -50,8 +53,11 @@ export default function App() {
   const [tweaks, setTweak] = useTweaks(/*EDITMODE-BEGIN*/{
     "theme": "light",
     "density": "comfortable",
-    "accent": "#e63333"
+    "accent": "#e63333",
+    "lang": "es"
   }/*EDITMODE-END*/);
+  const lang = tweaks.lang || 'es';
+  const i18n = t(lang);
 
   useEffect(() => {
     document.documentElement.dataset.theme = tweaks.theme;
@@ -61,6 +67,8 @@ export default function App() {
     const d = tweaks.density === 'compact' ? 0.85 : tweaks.density === 'spacious' ? 1.15 : 1;
     document.documentElement.style.setProperty('--density', d);
   }, [tweaks.theme, tweaks.density, tweaks.accent]);
+
+  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
 
   const [view, setView] = useState('catalog');
   const [filters, setFilters] = useState({ q: '', types: [], gen: '' });
@@ -87,7 +95,7 @@ export default function App() {
   useEffect(() => {
     const shared = decodeTeamFromUrl();
     if (shared && shared.ids.length > 0) {
-      Promise.all(shared.ids.map(id => hydrateBasic(id))).then(members => {
+      Promise.all(shared.ids.map(id => hydrateBasic(id, lang))).then(members => {
         const id = 'team-shared-' + Date.now();
         const next = {
           active: id,
@@ -95,7 +103,7 @@ export default function App() {
         };
         setTeamsState(next); saveTeams(next);
         setView('team');
-        onToast('Equipo compartido cargado');
+        onToast(i18n.sharedTeamLoaded);
         history.replaceState(null, '', window.location.pathname);
       });
     }
@@ -118,22 +126,22 @@ export default function App() {
           pool = pool.filter(p => p.id === n || String(p.id).includes(q));
         } else {
           let englishMatches = pool.filter(p => p.name.includes(q));
-          const spanishMatches = pool.filter(p => {
-            const sp = PokeData.spanishNameIndex.get(p.id);
+          const localizedMatches = pool.filter(p => {
+            const sp = PokeData.getCachedName(p.id, lang);
             return sp && sp.includes(q);
           });
-          const toFetch = pool.slice(0, 200).filter(p => !PokeData.spanishNameIndex.has(p.id)).slice(0, 60);
+          const toFetch = pool.slice(0, 200).filter(p => !PokeData.hasCachedName(p.id, lang)).slice(0, 60);
           if (toFetch.length > 0) {
-            await Promise.all(toFetch.map(p => PokeData.ensureSpanishName(p.id).catch(() => null)));
+            await Promise.all(toFetch.map(p => PokeData.ensureName(p.id, lang).catch(() => null)));
             if (cancel) return;
-            const moreSpanish = pool.filter(p => {
-              const sp = PokeData.spanishNameIndex.get(p.id);
+            const moreLocalized = pool.filter(p => {
+              const sp = PokeData.getCachedName(p.id, lang);
               return sp && sp.includes(q);
             });
-            const ids = new Set([...englishMatches, ...moreSpanish].map(p => p.id));
+            const ids = new Set([...englishMatches, ...moreLocalized].map(p => p.id));
             pool = pool.filter(p => ids.has(p.id));
           } else {
-            const ids = new Set([...englishMatches, ...spanishMatches].map(p => p.id));
+            const ids = new Set([...englishMatches, ...localizedMatches].map(p => p.id));
             pool = pool.filter(p => ids.has(p.id));
           }
         }
@@ -143,9 +151,9 @@ export default function App() {
       setItems([]); setPage(0); setDone(false);
     })();
     return () => { cancel = true; };
-  }, [filters.q, filters.gen, filters.types, index]);
+  }, [filters.q, filters.gen, filters.types, index, lang]);
 
-  async function hydrateBasic(id) {
+  async function hydrateBasic(id, lng) {
     try {
       const poke = await PokeData.getPokemon(id);
       const types = poke.types.map(t => t.type.name);
@@ -154,8 +162,8 @@ export default function App() {
       let name;
       try {
         const sp = await PokeData.getSpecies(id);
-        name = PokeData.getSpanishName(sp);
-        PokeData.spanishNameIndex.set(id, name.toLowerCase());
+        name = PokeData.getName(sp, lng);
+        PokeData.setCachedName(id, lng, name.toLowerCase());
       } catch {
         name = poke.name;
       }
@@ -182,7 +190,7 @@ export default function App() {
     while (collected.length < PAGE_SIZE && cur < ids.length) {
       const slice = ids.slice(cur, cur + PAGE_SIZE);
       cur += PAGE_SIZE;
-      const hydrated = (await Promise.all(slice.map(hydrateBasic))).filter(Boolean);
+      const hydrated = (await Promise.all(slice.map(id => hydrateBasic(id, lang)))).filter(Boolean);
       let kept = hydrated;
       if (filters.types.length > 0) {
         kept = hydrated.filter(h => filters.types.every(t => h.types.includes(t)));
@@ -194,7 +202,7 @@ export default function App() {
     setPage(p => p + 1);
     if (cur >= ids.length) setDone(true);
     setLoading(false);
-  }, [loading, done, page, filteredIds, index, filters.types]);
+  }, [loading, done, page, filteredIds, index, filters.types, lang]);
 
   useEffect(() => {
     if (filteredIds !== null && items.length === 0 && !loading) {
@@ -221,13 +229,13 @@ export default function App() {
     let next;
     if (isIn) {
       next = cur.filter(m => m.id !== basic.id);
-      onToast(`Eliminado: ${basic.name}`);
+      onToast(i18n.removedFromTeam(basic.name));
     } else if (cur.length >= 6) {
-      onToast('El equipo está lleno (máx. 6)');
+      onToast(i18n.teamFull);
       return;
     } else {
       next = [...cur, { id: basic.id, name: basic.name, types: basic.types, stats: basic.stats }];
-      onToast(`+ ${basic.name} al equipo`);
+      onToast(i18n.addedToTeam(basic.name));
     }
     const newState = { ...teamsState, list: teamsState.list.map(t => t.id === activeTeam.id ? { ...t, members: next } : t) };
     setTeamsState(newState);
@@ -246,7 +254,7 @@ export default function App() {
         <div className="search-wrap">
           <input
             type="search"
-            placeholder="Buscar por nombre o número…"
+            placeholder={i18n.searchPlaceholder}
             value={filters.q}
             onChange={(e) => setFilters({ ...filters, q: e.target.value })}
           />
@@ -255,13 +263,13 @@ export default function App() {
           className="tab-btn"
           aria-current={view === 'catalog'}
           onClick={() => setView('catalog')}
-        >Catálogo</button>
+        >{i18n.catalog}</button>
         <button
           className="tab-btn"
           aria-current={view === 'team'}
           onClick={() => setView('team')}
         >
-          Mi Equipo
+          {i18n.team}
           <span className="badge">{activeTeam.members.length}/6</span>
         </button>
       </header>
@@ -269,7 +277,7 @@ export default function App() {
       {view === 'catalog' && (
         <>
           <WelcomeBanner />
-          <FilterBar filters={filters} setFilters={setFilters} />
+          <FilterBar filters={filters} setFilters={setFilters} lang={lang} />
           <div className="grid">
             {items.map(it => (
               <CritterCard
@@ -278,22 +286,23 @@ export default function App() {
                 inTeam={inTeamIds.has(it.id)}
                 onOpen={(id) => setOpenId(id)}
                 onToggleTeam={toggleInTeam}
+                lang={lang}
               />
             ))}
             {items.length === 0 && !loading && filteredIds !== null && (
               <div className="empty">
-                <h3>Sin resultados</h3>
-                <p>Prueba a quitar algún filtro.</p>
+                <h3>{i18n.noResults}</h3>
+                <p>{i18n.tryRemoveFilter}</p>
               </div>
             )}
             {!done && (
               <div ref={sentinelRef} className="sentinel">
-                {loading ? <div className="spinner" /> : <span style={{ opacity: 0.4 }}>Desplázate para cargar más</span>}
+                {loading ? <div className="spinner" /> : <span style={{ opacity: 0.4 }}>{i18n.loadMore}</span>}
               </div>
             )}
             {done && items.length > 0 && (
               <div className="sentinel" style={{ opacity: 0.5 }}>
-                ✦ Mostrando {items.length} de {totalCount} ✦
+                {i18n.showingOf(items.length, totalCount)}
               </div>
             )}
           </div>
@@ -306,6 +315,7 @@ export default function App() {
           setTeamsState={setTeamsState}
           onOpenDetail={(id) => setOpenId(id)}
           onToast={onToast}
+          lang={lang}
         />
       )}
 
@@ -316,40 +326,47 @@ export default function App() {
           onToggleTeam={(data) => toggleInTeam({ id: data.id, name: data.name, types: data.types, stats: data.stats })}
           inTeam={inTeamIds.has(openId)}
           openId={(id) => setOpenId(id)}
+          lang={lang}
         />
       )}
 
-      <TweaksUI tweaks={tweaks} setTweak={setTweak} />
+      <TweaksUI tweaks={tweaks} setTweak={setTweak} i18n={i18n} />
 
       {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }
 
-function TweaksUI({ tweaks, setTweak }) {
+function TweaksUI({ tweaks, setTweak, i18n }) {
   return (
-    <TweaksPanel title="Tweaks">
-      <TweakSection label="Apariencia" />
+    <TweaksPanel title={i18n.tweaks.title}>
+      <TweakSection label={i18n.tweaks.appearance} />
       <TweakRadio
-        label="Tema"
+        label={i18n.tweaks.theme}
         value={tweaks.theme}
-        options={[{ value: 'light', label: 'Claro' }, { value: 'dark', label: 'Oscuro' }]}
+        options={[{ value: 'light', label: i18n.tweaks.light }, { value: 'dark', label: i18n.tweaks.dark }]}
         onChange={(v) => setTweak('theme', v)}
       />
       <TweakRadio
-        label="Densidad"
+        label={i18n.tweaks.density}
         value={tweaks.density}
         options={[
-          { value: 'compact', label: 'Compacta' },
-          { value: 'comfortable', label: 'Normal' },
-          { value: 'spacious', label: 'Amplia' },
+          { value: 'compact',     label: i18n.tweaks.compact },
+          { value: 'comfortable', label: i18n.tweaks.normal },
+          { value: 'spacious',    label: i18n.tweaks.spacious },
         ]}
         onChange={(v) => setTweak('density', v)}
       />
       <TweakColor
-        label="Acento"
+        label={i18n.tweaks.accent}
         value={tweaks.accent}
         onChange={(v) => setTweak('accent', v)}
+      />
+      <TweakSelect
+        label={i18n.tweaks.language}
+        value={tweaks.lang || 'es'}
+        options={LANG_OPTIONS.map(l => ({ value: l.code, label: l.label }))}
+        onChange={(v) => setTweak('lang', v)}
       />
     </TweaksPanel>
   );
