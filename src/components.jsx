@@ -79,18 +79,36 @@ export function FilterBar({ filters, setFilters, lang = 'es' }) {
 }
 
 function spriteVariantLabel(parts, i18n) {
-  const map = { front: i18n.sprite.front, back: i18n.sprite.back, shiny: i18n.sprite.shiny, female: i18n.sprite.female };
-  return parts.map(p => map[p]).join(' · ');
+  const map = {
+    front:       i18n.sprite.front,
+    back:        i18n.sprite.back,
+    shiny:       i18n.sprite.shiny,
+    female:      i18n.sprite.female,
+    gray:        i18n.sprite.gray,
+    transparent: i18n.sprite.transparent,
+  };
+  return parts.map(p => map[p] || p).join(' · ');
+}
+
+function spriteGroupLabel(group, i18n) {
+  const lookup = (path) => path.split('.').reduce((o, k) => o?.[k], i18n);
+  let label = group.i18nKey ? lookup(group.i18nKey) : null;
+  if (!label) label = group.text || group.groupKey;
+  if (group.suffixI18nKey) {
+    const suffix = lookup(group.suffixI18nKey);
+    if (suffix) label = `${label} (${suffix})`;
+  }
+  return label;
 }
 
 export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId, lang = 'es' }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const [spriteKey, setSpriteKey] = useState('artwork');
+  const [spriteKey, setSpriteKey] = useState('official-artwork:front_default');
   const i18n = t(lang);
 
   useEffect(() => {
-    setData(null); setError(null); setSpriteKey('artwork');
+    setData(null); setError(null); setSpriteKey('official-artwork:front_default');
     let cancel = false;
     (async () => {
       try {
@@ -166,13 +184,34 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId, lang = 
 
   const heroBg = data?.types?.[0] ? `color-mix(in oklab, var(--t-${data.types[0]}) 80%, var(--ink))` : 'var(--bg-2)';
 
-  const variants = useMemo(() => {
+  const spriteGroups = useMemo(() => {
     if (!data) return [];
-    const list = [{ key: 'artwork', url: data.art, parts: ['artwork'] }];
-    return list.concat(PokeData.spriteVariants(data.sprites));
+    const groups = PokeData.spriteSources(data.sprites);
+    // Guarantee an "official-artwork" entry even if the API didn't include
+    // it (some forms have an empty other.official-artwork): the URL we
+    // already pre-computed in data.art points at the same asset.
+    if (!groups.find(g => g.groupKey === 'official-artwork')) {
+      groups.unshift({
+        groupKey: 'official-artwork',
+        i18nKey: 'sprite.officialArtwork',
+        pixel: false,
+        variants: [{ key: 'front_default', url: data.art, parts: ['front'] }],
+      });
+    }
+    return groups;
   }, [data]);
 
-  const currentVariant = variants.find(v => v.key === spriteKey) || variants[0];
+  const flatVariants = useMemo(() => {
+    const arr = [];
+    for (const g of spriteGroups) {
+      for (const v of g.variants) {
+        arr.push({ key: `${g.groupKey}:${v.key}`, url: v.url, parts: v.parts, pixel: !!g.pixel });
+      }
+    }
+    return arr;
+  }, [spriteGroups]);
+
+  const currentVariant = flatVariants.find(v => v.key === spriteKey) || flatVariants[0];
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -204,32 +243,31 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId, lang = 
                 <img
                   src={currentVariant?.url}
                   alt={data.name}
-                  className={spriteKey === 'artwork' ? '' : 'pixel'}
+                  className={currentVariant?.pixel ? 'pixel' : ''}
                   onError={(e) => { e.target.src = PokeData.spriteUrlSmall(data.id); }}
                 />
               </div>
             </div>
 
-            {variants.length > 1 && (
+            {flatVariants.length > 1 && (
               <div className="sprite-picker">
-                <span className="sprite-picker-label">{i18n.section.sprites}</span>
-                <div className="sprite-chips">
-                  {variants.map(v => {
-                    const label = v.key === 'artwork'
-                      ? i18n.sprite.artwork
-                      : spriteVariantLabel(v.parts, i18n);
-                    return (
-                      <button
-                        key={v.key}
-                        type="button"
-                        className={'sprite-chip' + (v.key === spriteKey ? ' on' : '')}
-                        onClick={() => setSpriteKey(v.key)}
-                      >
-                        {label}
-                      </button>
-                    );
-                  })}
-                </div>
+                <label className="sprite-picker-label" htmlFor="sprite-select">{i18n.section.sprites}</label>
+                <select
+                  id="sprite-select"
+                  className="sprite-select"
+                  value={currentVariant ? currentVariant.key : ''}
+                  onChange={(e) => setSpriteKey(e.target.value)}
+                >
+                  {spriteGroups.map(g => (
+                    <optgroup key={g.groupKey} label={spriteGroupLabel(g, i18n)}>
+                      {g.variants.map(v => (
+                        <option key={`${g.groupKey}:${v.key}`} value={`${g.groupKey}:${v.key}`}>
+                          {spriteVariantLabel(v.parts, i18n)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
               </div>
             )}
 

@@ -135,22 +135,77 @@ export function spriteUrlSmall(id) {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 }
 
-/** From a /pokemon endpoint sprites object, return the variants that exist
- *  along with a friendly translation key. The caller maps the key to a
- *  localized label via i18n. */
-export function spriteVariants(sprites) {
+/** Build a structured list of sprite sources for the friendlier picker.
+ *  Order, top-down: official-artwork → home → dream-world → default
+ *  pixel sprite → showdown → game versions (Gen I → IX). Each group lists
+ *  its variants (front/back × shiny/female × gray/transparent for old
+ *  gens), plus animated GIFs from Gen V B/W as their own sub-group.
+ *  Empty groups are skipped.
+ *
+ *  Returned shape:
+ *    [{ groupKey, i18nKey?, text?, suffixI18nKey?, pixel, variants: [{ key, url, parts }] }]
+ */
+export function spriteSources(sprites) {
   if (!sprites) return [];
-  const variants = [
-    { key: 'front_default',       url: sprites.front_default,       parts: ['front'] },
-    { key: 'back_default',        url: sprites.back_default,        parts: ['back'] },
-    { key: 'front_shiny',         url: sprites.front_shiny,         parts: ['front', 'shiny'] },
-    { key: 'back_shiny',          url: sprites.back_shiny,          parts: ['back',  'shiny'] },
-    { key: 'front_female',        url: sprites.front_female,        parts: ['front', 'female'] },
-    { key: 'back_female',         url: sprites.back_female,         parts: ['back',  'female'] },
-    { key: 'front_shiny_female',  url: sprites.front_shiny_female,  parts: ['front', 'shiny', 'female'] },
-    { key: 'back_shiny_female',   url: sprites.back_shiny_female,   parts: ['back',  'shiny', 'female'] },
-  ];
-  return variants.filter(v => v.url);
+  const out = [];
+
+  const collect = (groupKey, meta, src) => {
+    if (!src) return;
+    const variants = [];
+    const v = (key, url, parts) => { if (url) variants.push({ key, url, parts }); };
+    v('front_default',           src.front_default,           ['front']);
+    v('back_default',            src.back_default,            ['back']);
+    v('front_shiny',             src.front_shiny,             ['front', 'shiny']);
+    v('back_shiny',              src.back_shiny,              ['back', 'shiny']);
+    v('front_female',            src.front_female,            ['front', 'female']);
+    v('back_female',             src.back_female,             ['back', 'female']);
+    v('front_shiny_female',      src.front_shiny_female,      ['front', 'shiny', 'female']);
+    v('back_shiny_female',       src.back_shiny_female,       ['back', 'shiny', 'female']);
+    v('front_gray',              src.front_gray,              ['front', 'gray']);
+    v('back_gray',               src.back_gray,               ['back', 'gray']);
+    v('front_transparent',       src.front_transparent,       ['front', 'transparent']);
+    v('back_transparent',        src.back_transparent,        ['back', 'transparent']);
+    v('front_shiny_transparent', src.front_shiny_transparent, ['front', 'shiny', 'transparent']);
+    v('back_shiny_transparent',  src.back_shiny_transparent,  ['back', 'shiny', 'transparent']);
+    if (variants.length > 0) out.push({ groupKey, ...meta, variants });
+  };
+
+  // Top-priority artwork groups (high-res, smooth rendering).
+  collect('official-artwork', { i18nKey: 'sprite.officialArtwork', pixel: false }, sprites.other?.['official-artwork']);
+  collect('home',             { i18nKey: 'sprite.home',            pixel: false }, sprites.other?.home);
+  collect('dream-world',      { i18nKey: 'sprite.dreamWorld',      pixel: false }, sprites.other?.dream_world);
+
+  // Pixel sprites (top-level + Showdown animated GIFs).
+  collect('default',          { i18nKey: 'sprite.defaultPixel',    pixel: true  }, sprites);
+  collect('showdown',         { i18nKey: 'sprite.showdown',        pixel: true  }, sprites.other?.showdown);
+
+  // Game-version sprites, ordered Gen I → Gen IX.
+  const versions = sprites.versions || {};
+  const ROMAN = {
+    'generation-i': 'I', 'generation-ii': 'II', 'generation-iii': 'III',
+    'generation-iv': 'IV', 'generation-v': 'V', 'generation-vi': 'VI',
+    'generation-vii': 'VII', 'generation-viii': 'VIII', 'generation-ix': 'IX',
+  };
+  for (const gen of Object.keys(ROMAN)) {
+    const games = versions[gen];
+    if (!games) continue;
+    for (const [game, src] of Object.entries(games)) {
+      const gameLabel = `Gen ${ROMAN[gen]} — ${game.replace(/-/g, '/')}`;
+      // Some games include an `animated` sub-record (Gen V B/W) — split it
+      // into its own group so users can pick "animated" specifically.
+      if (src.animated) {
+        collect(`${gen}__${game}__animated`, {
+          text: gameLabel,
+          suffixI18nKey: 'sprite.animated',
+          pixel: true,
+        }, src.animated);
+      }
+      const { animated, ...rest } = src;
+      collect(`${gen}__${game}`, { text: gameLabel, pixel: true }, rest);
+    }
+  }
+
+  return out;
 }
 
 // ===== Search index — per-language, lazy =====
@@ -263,7 +318,7 @@ export const PokeData = {
   getMoveName,
   ALL_TYPES, GENERATIONS,
   genFromId,
-  spriteUrl, spriteUrlSmall, spriteVariants,
+  spriteUrl, spriteUrlSmall, spriteSources,
   ensureName, getCachedName, hasCachedName, setCachedName,
   calculateWeaknesses,
   analyzeTeamCoverage,
