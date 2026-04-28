@@ -610,12 +610,36 @@ input:focus, select:focus {
 .weak-cell.veryresist { background: color-mix(in oklab, var(--t-grass) 45%, var(--surface)); }
 .weak-cell.immune { background: var(--ink); color: var(--bg); }
 
+/* Evolution chain renders as a recursive tree:
+   .evo-node-wrap = [node, branches?] in a row.
+   .evo-branches  = vertical column of children of one node.
+   .evo-branch    = one child entry: arrow+condition, then a nested
+                    .evo-node-wrap (recursion). A linear chain like
+                    Bulba→Ivy→Venu naturally collapses to a single row
+                    because each node has exactly one branch with one
+                    child. Trees with many siblings (Eevee, Wurmple)
+                    stack their branches vertically. */
 .evo-chain {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
   justify-content: center;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 4px 8px;
+}
+.evo-node-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.evo-branches {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.evo-branch {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 .evo-node {
   display: flex;
@@ -629,12 +653,28 @@ input:focus, select:focus {
   min-width: 90px;
   cursor: pointer;
   transition: transform 0.08s;
+  flex-shrink: 0;
 }
 .evo-node:hover { transform: translate(-1px, -1px); box-shadow: 2px 2px 0 0 var(--line); }
 .evo-node img { width: 56px; height: 56px; object-fit: contain; }
 .evo-node .nm { font-size: 12px; font-weight: 700; text-transform: capitalize; }
-.evo-arrow { font-size: 20px; color: var(--ink-3); font-weight: 700; }
-.evo-arrow .cond { display: block; font-size: 10px; color: var(--ink-3); }
+.evo-arrow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 20px;
+  color: var(--ink-3);
+  font-weight: 700;
+  min-width: 56px;
+  flex-shrink: 0;
+}
+.evo-arrow .cond {
+  display: block;
+  font-size: 10px;
+  color: var(--ink-3);
+  text-transform: lowercase;
+  white-space: nowrap;
+}
 
 .ability {
   background: var(--surface-2);

@@ -2,7 +2,7 @@
    Components — Card, Filters, Modal, etc.
    ============================================================ */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { PokeData } from './data.js';
 import { t, typeName, statName } from './i18n.js';
 
@@ -143,11 +143,11 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId, lang = 
           } catch { return { name: ref.name, type: 'normal' }; }
         }));
 
-        let evoChain = [];
+        let evoTree = null;
         if (species.evolution_chain?.url) {
           try {
             const evo = await PokeData.getEvolutionChain(species.evolution_chain.url);
-            evoChain = await flattenEvoChain(evo.chain, lang);
+            evoTree = await buildEvoTree(evo.chain, lang);
           } catch (e) {}
         }
 
@@ -164,7 +164,7 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId, lang = 
           weight: poke.weight / 10,
           abilities,
           moves,
-          evoChain,
+          evoTree,
           weaknesses: PokeData.calculateWeaknesses(types),
           art: PokeData.spriteUrl(id),
           sprites: poke.sprites,
@@ -374,24 +374,11 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId, lang = 
                 </div>
               </section>
 
-              {data.evoChain.length > 1 && (
+              {data.evoTree && evoTreeSize(data.evoTree) > 1 && (
                 <section style={{ gridColumn: '1 / -1' }}>
                   <h3>{i18n.section.evo}</h3>
                   <div className="evo-chain">
-                    {data.evoChain.map((node, i) => (
-                      <React.Fragment key={node.id + '-' + i}>
-                        {i > 0 && (
-                          <div className="evo-arrow">
-                            →
-                            <span className="cond">{node.condition || ''}</span>
-                          </div>
-                        )}
-                        <div className="evo-node" onClick={() => openId(node.id)}>
-                          <img src={PokeData.spriteUrlSmall(node.id)} alt={node.name} />
-                          <span className="nm">{node.name}</span>
-                        </div>
-                      </React.Fragment>
-                    ))}
+                    <EvoNodeView node={data.evoTree} openId={openId} />
                   </div>
                 </section>
               )}
@@ -403,8 +390,7 @@ export function DetailModal({ id, onClose, onToggleTeam, inTeam, openId, lang = 
   );
 }
 
-async function flattenEvoChain(node, lang, condition = null) {
-  const out = [];
+async function buildEvoTree(node, lang, condition = null) {
   const speciesName = node.species.name;
   const m = node.species.url.match(/\/pokemon-species\/(\d+)\//);
   const id = m ? parseInt(m[1], 10) : null;
@@ -413,7 +399,7 @@ async function flattenEvoChain(node, lang, condition = null) {
     const sp = await PokeData.getSpecies(speciesName);
     name = PokeData.getName(sp, lang);
   } catch {}
-  out.push({ id, name, condition });
+  const children = [];
   for (const child of (node.evolves_to || [])) {
     const det = (child.evolution_details || [])[0] || {};
     let cond = '';
@@ -421,8 +407,35 @@ async function flattenEvoChain(node, lang, condition = null) {
     else if (det.item) cond = `${det.item.name.replace(/-/g,' ')}`;
     else if (det.trigger?.name === 'trade') cond = '⇄';
     else if (det.min_happiness) cond = '♥';
-    const childOut = await flattenEvoChain(child, lang, cond);
-    out.push(...childOut);
+    children.push(await buildEvoTree(child, lang, cond));
   }
-  return out;
+  return { id, name, condition, children };
+}
+
+function evoTreeSize(tree) {
+  if (!tree) return 0;
+  return 1 + tree.children.reduce((a, c) => a + evoTreeSize(c), 0);
+}
+
+function EvoNodeView({ node, openId }) {
+  return (
+    <div className="evo-node-wrap">
+      <div className="evo-node" onClick={() => openId(node.id)}>
+        <img src={PokeData.spriteUrlSmall(node.id)} alt={node.name} />
+        <span className="nm">{node.name}</span>
+      </div>
+      {node.children.length > 0 && (
+        <div className="evo-branches">
+          {node.children.map((c, i) => (
+            <div className="evo-branch" key={c.id + '-' + i}>
+              <div className="evo-arrow">
+                →<span className="cond">{c.condition || ''}</span>
+              </div>
+              <EvoNodeView node={c} openId={openId} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
